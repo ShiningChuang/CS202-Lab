@@ -89,3 +89,37 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+uint64
+sys_hello(void) // hello system call definition
+{
+  int n;
+  argint(0, &n);
+  print_hello(n);
+  return 0;
+}
+
+uint64
+sys_sysinfo(void) // info system call definition
+{
+  int n;
+  int result;
+  argint(0, &n);
+  if (n == 0) { // get total number of active processes
+    result = get_active_processes_num();
+  } else if (n == 1) { 
+    result = get_syscall_num(); // get total number of system calls
+  } else if (n == 2) {  // get the number of free memory pages
+    result = get_free_memory_pages_num(); 
+  } else {
+    result = -1; // invalid argument
+  }
+  return result;
+}
+
+uint64
+sys_procinfo(void) // procinfo system call definition
+{
+  printf("This is procinfo \n");
+  return 999;
+}

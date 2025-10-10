@@ -681,3 +681,31 @@ procdump(void)
     printf("\n");
   }
 }
+
+
+// hello: printing hello meg
+void
+print_hello(int n)
+{
+  printf("Hello from the kernel space %d\n", n);
+}
+
+
+int
+get_active_processes_num()
+{
+  printf("This is get_active_processes_num \n");
+  return 999;
+}
+
+int get_syscall_num()
+{
+  printf("This is get_syscall_num \n");
+  return 999;
+}
+
+int get_free_memory_pages_num()
+{
+  printf("This is get_free_memory_pages_num");
+  return 999;
+}

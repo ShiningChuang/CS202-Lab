@@ -106,6 +106,10 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+void            print_hello(int n); // hello
+int             get_active_processes_num(); // active_processes_num
+int             get_syscall_num(); // syscall_num
+int             get_free_memory_pages_num(); // free_memory_pages_num
 
 // swtch.S
 void            swtch(struct context*, struct context*);
