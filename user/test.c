@@ -32,15 +32,19 @@ void test_sysinfo_2() {
     printf("free pages after malloc: %d\n", sysinfo(2));
 }
 
-void test_procinfo(int argc, char *argv[]) {
-    int result = procinfo(); // call procinfo syscall
-    printf("Result from procinfo(): %d\n", result);
+void test_procinfo() {
+    struct pinfo pi;
+    if (procinfo(&pi) == -1) {
+        printf("procinfo failed!\n");
+        exit(1);
+    }
+    printf("ppid: %d, syscall_count: %d, page_usage: %d\n", pi.ppid, pi.syscall_count, pi.page_usage);
 }
-
 
 int main(int argc, char *argv[])
 {
     // test_sysinfo(argc, argv);
-    test_sysinfo_2();
+    // test_sysinfo_2();
+    test_procinfo();
     exit(0);
 }

@@ -24,7 +24,14 @@ int sleep(int);
 int uptime(void);
 int hello(int); // hello
 int sysinfo(int); // sysinfo
-int procinfo(void); // procinfo
+
+struct pinfo
+{
+    int ppid;
+    int syscall_count;
+    int page_usage;
+};
+int procinfo(struct pinfo *info); // procinfo
 
 // ulib.c
 int stat(const char*, struct stat*);

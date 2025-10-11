@@ -145,8 +145,10 @@ syscall(void)
 
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-    // count the number of syscalls
+    // count the number of syscalls (global)
     syscall_n++;
+    //  count the number of syscalls (current process)
+    p->current_proc_syscall_num++;
 
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0

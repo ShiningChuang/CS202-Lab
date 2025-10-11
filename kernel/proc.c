@@ -125,6 +125,9 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
+  // initialize syscall counter
+  p->current_proc_syscall_num = 0;
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -687,14 +690,14 @@ procdump(void)
 void
 print_hello(int n)
 {
-  printf("Hello from the kernel space %d\n", n);
+  printf("[K_INFO] Hello from the kernel space %d\n", n);
 }
 
 
 int
 get_active_processes_num()
 {
-  printf("[INFO] This is get_active_processes_num \n");
+  printf("[K_INFO] This is get_active_processes_num \n");
   struct proc *p;
   int active_num = 0;
   for(p = proc; p < &proc[NPROC]; p++){
@@ -707,12 +710,12 @@ get_active_processes_num()
 
 int get_syscall_num()
 {
-  printf("[INFO] This is get_syscall_num \n");
+  printf("[K_INFO] This is get_syscall_num \n");
   return syscall_num();
 }
 
 int get_free_memory_pages_num()
 {
-  printf("[INFO] This is get_free_memory_pages_num \n");
+  printf("[K_INFO] This is get_free_memory_pages_num \n");
   return free_memory_pages_num();
 }

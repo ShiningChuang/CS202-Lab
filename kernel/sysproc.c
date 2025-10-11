@@ -112,15 +112,41 @@ sys_sysinfo(void) // info system call definition
   } else if (n == 2) {  // get the number of free memory pages
     result = get_free_memory_pages_num(); 
   } else {  // invalid argument
-    printf("[INFO] invalid argument %d\n", n);
+    printf("[K_INFO] invalid argument %d\n", n);
     result = -1; 
   }
   return result;
 }
 
+
+// per process info for procinfo syscall, mirror struct pinfo using in kernel
+struct pinfo_kernel {
+  int ppid;
+  int syscall_count;
+  int page_usage;
+};
+
 uint64
 sys_procinfo(void) // procinfo system call definition
 {
-  printf("This is procinfo \n");
-  return 999;
+  printf("[K_INFO] This is procinfo \n");
+  struct proc *p = myproc();
+  struct pinfo_kernel pinfo_k;
+  uint64 user_addr;
+  argaddr(0, &user_addr); // no need to check, copyin/copyout will do that
+
+  acquire(&p->lock);
+  pinfo_k.ppid = (p->parent) ? p->parent->pid : -1;
+  pinfo_k.syscall_count = p->current_proc_syscall_num - 1; // not including this time
+  pinfo_k.page_usage = (p->sz + PGSIZE - 1) / PGSIZE; // round up, 10000 bytes -> 3 pages
+  release(&p->lock);
+
+  // copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len), return 0 on success, -1 on error.
+  int res = copyout(p->pagetable, user_addr, (char *)&pinfo_k, sizeof(pinfo_k));
+  if (res < 0) {
+    printf("[K_INFO] procinfo copyout failed \n");
+  } else {
+    printf("[K_INFO] procinfo copyout success \n");
+  }
+  return res;
 }
