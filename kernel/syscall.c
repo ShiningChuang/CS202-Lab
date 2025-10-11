@@ -7,6 +7,9 @@
 #include "syscall.h"
 #include "defs.h"
 
+
+static int syscall_n = 0;
+
 // Fetch the uint64 at addr from the current process.
 int
 fetchaddr(uint64 addr, uint64 *ip)
@@ -142,6 +145,9 @@ syscall(void)
 
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    // count the number of syscalls
+    syscall_n++;
+
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
     p->trapframe->a0 = syscalls[num]();
@@ -150,4 +156,10 @@ syscall(void)
             p->pid, p->name, num);
     p->trapframe->a0 = -1;
   }
+}
+
+int
+syscall_num(void)
+{
+  return syscall_n;
 }

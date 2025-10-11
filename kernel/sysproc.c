@@ -107,12 +107,13 @@ sys_sysinfo(void) // info system call definition
   argint(0, &n);
   if (n == 0) { // get total number of active processes
     result = get_active_processes_num();
-  } else if (n == 1) { 
-    result = get_syscall_num(); // get total number of system calls
+  } else if (n == 1) {  // get total number of system calls not including this time
+    result = get_syscall_num()-1; 
   } else if (n == 2) {  // get the number of free memory pages
     result = get_free_memory_pages_num(); 
-  } else {
-    result = -1; // invalid argument
+  } else {  // invalid argument
+    printf("[INFO] invalid argument %d\n", n);
+    result = -1; 
   }
   return result;
 }

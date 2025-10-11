@@ -694,18 +694,25 @@ print_hello(int n)
 int
 get_active_processes_num()
 {
-  printf("This is get_active_processes_num \n");
-  return 999;
+  printf("[INFO] This is get_active_processes_num \n");
+  struct proc *p;
+  int active_num = 0;
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if (p->state != UNUSED) active_num++;
+    release(&p->lock);
+  }
+  return active_num;
 }
 
 int get_syscall_num()
 {
-  printf("This is get_syscall_num \n");
-  return 999;
+  printf("[INFO] This is get_syscall_num \n");
+  return syscall_num();
 }
 
 int get_free_memory_pages_num()
 {
-  printf("This is get_free_memory_pages_num");
-  return 999;
+  printf("[INFO] This is get_free_memory_pages_num \n");
+  return free_memory_pages_num();
 }
