@@ -107,6 +107,8 @@ extern uint64 sys_close(void);
 extern uint64 sys_hello(void); // declare that sys_hello exists in other files (sysproc.c)
 extern uint64 sys_sysinfo(void); // info
 extern uint64 sys_procinfo(void); // procinfo
+extern uint64 sys_sched_statistics(void); // sched_statistics
+extern uint64 sys_sched_tickets(void); // tickets
 
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
@@ -135,6 +137,8 @@ static uint64 (*syscalls[])(void) = {
 [SYS_hello]   sys_hello,
 [SYS_sysinfo]    sys_sysinfo, // info
 [SYS_procinfo] sys_procinfo, // procinfo
+[SYS_sched_statistics] sys_sched_statistics, // sched_statistics
+[SYS_sched_tickets] sys_sched_tickets, // tickets
 };
 
 void

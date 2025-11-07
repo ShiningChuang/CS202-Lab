@@ -125,6 +125,10 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
+  // lab2
+  p->tickets = 10000; // default maximum ticket
+  p->ticks_used = 0;
+
   // initialize syscall counter
   p->current_proc_syscall_num = 0;
 
@@ -463,6 +467,7 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        p->ticks_used++; // lab2: count ticks used by this process
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
@@ -718,4 +723,34 @@ int get_free_memory_pages_num()
 {
   printf("[K_INFO] This is get_free_memory_pages_num \n");
   return free_memory_pages_num();
+}
+
+// lab2
+int
+sched_statistics(void)
+{
+  struct proc *p;
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if (p->state != UNUSED) {
+      printf("%d(%s): tickets: %d, ticks: %d\n",
+             p->pid, p->name, p->tickets, p->ticks_used);
+    }
+    release(&p->lock);
+  }
+  return 0;
+}
+
+// lab2
+int
+set_tickets(int n)
+{
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  p->tickets = (n < 1) ? 1 : 
+                (n > 10000) ? 10000 : n;
+  printf("[K_INFO] set tickets to %d for process %d(%s)\n",
+         p->tickets, p->pid, p->name);  
+  release(&p->lock);
+  return 0;
 }

@@ -106,4 +106,8 @@ struct proc {
   char name[16];               // Process name (debugging)
 
   int current_proc_syscall_num; // current proccess syscall number
+
+    // lab2
+  int tickets;                 // number of tickets
+  int ticks_used;              // number of ticks used
 };

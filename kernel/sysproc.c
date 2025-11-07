@@ -150,3 +150,23 @@ sys_procinfo(void) // procinfo system call definition
   }
   return res;
 }
+
+//lab2
+uint64
+sys_sched_statistics(void) // sched_statistics system call definition
+{
+  printf("[K_INFO] This is sched_statistics \n");
+  return sched_statistics();
+}
+
+//lab2
+uint64
+sys_sched_tickets(void) // tickets system call definition
+{
+  int n;
+  argint(0, &n);
+  printf("[K_INFO] This is tickets");
+  return set_tickets(n);
+}
+
+

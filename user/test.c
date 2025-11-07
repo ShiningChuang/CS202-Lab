@@ -41,10 +41,23 @@ void test_procinfo() {
     printf("ppid: %d, syscall_count: %d, page_usage: %d\n", pi.ppid, pi.syscall_count, pi.page_usage);
 }
 
+void test_sched_statistics() {
+    int result = sched_statistics(); // call sched_statistics syscall
+    printf("Result from sched_statistics: %d\n", result);
+}
+
+void test_tickets(int n) {
+    int result = sched_tickets(n); // call tickets syscall
+    printf("Set tickets to %d, result: %d\n", n, result);
+    test_sched_statistics();
+}
+
 int main(int argc, char *argv[])
 {
     // test_sysinfo(argc, argv);
     // test_sysinfo_2();
-    test_procinfo();
+    test_tickets(9999);
+    test_tickets(0);
+    test_tickets(15000);
     exit(0);
 }
