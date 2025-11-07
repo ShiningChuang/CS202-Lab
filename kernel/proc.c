@@ -140,7 +140,8 @@ found:
   p->tickets    = 10000; // default maximum ticket
   p->ticks_used = 0;
   p->stride     = STRIDE_K / p->tickets;
-  p->pass       = STRIDE_K / p->tickets; // set initial pass to stride
+  p->pass       = 0;
+  // p->pass       = STRIDE_K / p->tickets; // set initial pass to stride
 
   // initialize syscall counter
   p->current_proc_syscall_num = 0;
@@ -467,6 +468,111 @@ wait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+// void
+// scheduler(void)
+// {
+//   struct proc *p;
+//   struct cpu *c = mycpu();
+//   c->proc = 0;
+
+//   for(;;){
+//     // Avoid deadlock by ensuring that devices can interrupt.
+//     intr_on();
+
+
+//     /* ------------- round robin ------------- */
+//     // for(p = proc; p < &proc[NPROC]; p++) {
+//     //   acquire(&p->lock);
+//     //   if(p->state == RUNNABLE) {
+//     //     // Switch to chosen process.  It is the process's job
+//     //     // to release its lock and then reacquire it
+//     //     // before jumping back to us.
+//     //     p->state = RUNNING;
+//     //     c->proc = p;
+//     //     p->ticks_used++; // lab2: count ticks used by this process
+//     //     swtch(&c->context, &p->context);
+
+//     //     // Process is done running for now.
+//     //     // It should have changed its p->state before coming back.
+//     //     c->proc = 0;
+//     //   }
+//     //   release(&p->lock);
+//     // }
+
+
+
+//     /* ------------- lottery schedule ------------- */
+//     // // count the total number of tickets
+//     // int total = 0;
+//     // for(p = proc; p < &proc[NPROC]; p++){
+//     //   acquire(&p->lock);
+//     //   if(p->state == RUNNABLE && p->tickets > 0){
+//     //     total += p->tickets;
+//     //   }
+//     //   release(&p->lock);
+//     // }
+//     // if(total == 0){
+//     //   // no runnable process, skip this round
+//     //   continue;
+//     // }
+
+//     // // draw a winning ticket, ensuring it's between 1 and total
+//     // int winning = (rand() % total) + 1;
+
+//     // // select the winning process
+//     // int acc = 0;
+
+//     // for(p = proc; p < &proc[NPROC]; p++){
+//     //   acquire(&p->lock);
+//     //   if(p->state == RUNNABLE){
+//     //     acc += p->tickets;
+//     //     if(acc >= winning){
+//     //       // found the winner, run it
+//     //       p->state = RUNNING;
+//     //       c->proc = p;
+//     //       swtch(&c->context, &p->context);
+//     //       c->proc = 0;
+//     //       release(&p->lock);
+//     //       break;   // schedule next process from the beginning
+//     //     }
+//     //   }
+//     //   release(&p->lock);
+//     // }
+
+//     /* ------------- stride schedule ------------- */
+//     struct proc *winner = 0;
+
+//     for(p = proc; p < &proc[NPROC]; p++){
+//       acquire(&p->lock);
+//       if(p->state == RUNNABLE){
+//         if(winner == 0 || p->pass < winner->pass){
+//           if(winner != 0){
+//             release(&winner->lock);
+//           }
+//           winner = p;
+//         } else {
+//           release(&p->lock);
+//         }
+//       } else {
+//         release(&p->lock);
+//       }
+//     }
+
+//     if(winner != 0){
+//       // found the winner, run it
+//       winner->state = RUNNING;
+//       c->proc = winner;
+//       winner->ticks_used++; // lab2: count ticks used by this process
+//       swtch(&c->context, &winner->context);
+
+//       // update the winner's pass value
+//       winner->pass += winner->stride;
+
+//       c->proc = 0;
+//       release(&winner->lock);
+//     }
+//   }
+// }
 void
 scheduler(void)
 {
@@ -475,72 +581,40 @@ scheduler(void)
   c->proc = 0;
 
   for(;;){
-    // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
+#if defined(LOTTERY)
+    int total_tickets = 0;
+    for(p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+      if(p->state == RUNNABLE && p->tickets > 0){
+        total_tickets += p->tickets;
+      }
+      release(&p->lock);
+    }
+    if(total_tickets > 0){
+      int winning_ticket = (rand() % total_tickets) + 1;
+      int accumulated_tickets = 0;
+      for(p = proc; p < &proc[NPROC]; p++){
+        acquire(&p->lock);
+        if(p->state == RUNNABLE){
+          accumulated_tickets += p->tickets;
+          if(accumulated_tickets >= winning_ticket){
+            p->state = RUNNING;
+            c->proc = p;
+            p->ticks_used++;
+            swtch(&c->context, &p->context);
+            c->proc = 0;
+            release(&p->lock);
+            break;
+          }
+        }
+        release(&p->lock);
+      }
+    }
 
-    /* ------------- round robin ------------- */
-    // for(p = proc; p < &proc[NPROC]; p++) {
-    //   acquire(&p->lock);
-    //   if(p->state == RUNNABLE) {
-    //     // Switch to chosen process.  It is the process's job
-    //     // to release its lock and then reacquire it
-    //     // before jumping back to us.
-    //     p->state = RUNNING;
-    //     c->proc = p;
-    //     p->ticks_used++; // lab2: count ticks used by this process
-    //     swtch(&c->context, &p->context);
-
-    //     // Process is done running for now.
-    //     // It should have changed its p->state before coming back.
-    //     c->proc = 0;
-    //   }
-    //   release(&p->lock);
-    // }
-
-
-
-    /* ------------- lottery schedule ------------- */
-    // // count the total number of tickets
-    // int total = 0;
-    // for(p = proc; p < &proc[NPROC]; p++){
-    //   acquire(&p->lock);
-    //   if(p->state == RUNNABLE && p->tickets > 0){
-    //     total += p->tickets;
-    //   }
-    //   release(&p->lock);
-    // }
-    // if(total == 0){
-    //   // no runnable process, skip this round
-    //   continue;
-    // }
-
-    // // draw a winning ticket, ensuring it's between 1 and total
-    // int winning = (rand() % total) + 1;
-
-    // // select the winning process
-    // int acc = 0;
-
-    // for(p = proc; p < &proc[NPROC]; p++){
-    //   acquire(&p->lock);
-    //   if(p->state == RUNNABLE){
-    //     acc += p->tickets;
-    //     if(acc >= winning){
-    //       // found the winner, run it
-    //       p->state = RUNNING;
-    //       c->proc = p;
-    //       swtch(&c->context, &p->context);
-    //       c->proc = 0;
-    //       release(&p->lock);
-    //       break;   // schedule next process from the beginning
-    //     }
-    //   }
-    //   release(&p->lock);
-    // }
-
-    /* ------------- stride schedule ------------- */
+#elif defined(STRIDE)
     struct proc *winner = 0;
-
     for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
       if(p->state == RUNNABLE){
@@ -556,20 +630,29 @@ scheduler(void)
         release(&p->lock);
       }
     }
-
     if(winner != 0){
-      // found the winner, run it
       winner->state = RUNNING;
       c->proc = winner;
-      winner->ticks_used++; // lab2: count ticks used by this process
+      winner->ticks_used++;
       swtch(&c->context, &winner->context);
-
-      // update the winner's pass value
       winner->pass += winner->stride;
-
       c->proc = 0;
       release(&winner->lock);
     }
+
+#else
+    for(p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if(p->state == RUNNABLE) {
+        p->state = RUNNING;
+        c->proc = p;
+        p->ticks_used++;
+        swtch(&c->context, &p->context);
+        c->proc = 0;
+      }
+      release(&p->lock);
+    }
+#endif
   }
 }
 
