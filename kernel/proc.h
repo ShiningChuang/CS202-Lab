@@ -110,4 +110,6 @@ struct proc {
     // lab2
   int tickets;                 // number of tickets
   int ticks_used;              // number of ticks used
+  uint64  stride;
+  uint64  pass;
 };

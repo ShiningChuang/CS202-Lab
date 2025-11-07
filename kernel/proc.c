@@ -26,6 +26,17 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+static unsigned short lfsr = 0xACE1u;
+static unsigned short bit;
+
+unsigned short
+rand(void)
+{
+  bit = ((lfsr >> 0) ^ (lfsr >> 2) ^ (lfsr >> 3) ^ (lfsr >> 5)) & 1;
+  return lfsr = (lfsr >> 1) | (bit << 15);
+}
+
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -126,8 +137,10 @@ found:
   p->state = USED;
 
   // lab2
-  p->tickets = 10000; // default maximum ticket
+  p->tickets    = 10000; // default maximum ticket
   p->ticks_used = 0;
+  p->stride     = STRIDE_K / p->tickets;
+  p->pass       = STRIDE_K / p->tickets; // set initial pass to stride
 
   // initialize syscall counter
   p->current_proc_syscall_num = 0;
@@ -302,6 +315,10 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+  // lab2: child process inherit tickets, stride, pass from parent
+  np->tickets = p->tickets;
+  np->stride  = p->stride;
+  np->pass    = p->pass; 
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
@@ -441,6 +458,8 @@ wait(uint64 addr)
   }
 }
 
+
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -453,28 +472,103 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-  
   c->proc = 0;
+
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        p->ticks_used++; // lab2: count ticks used by this process
-        swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
+    /* ------------- round robin ------------- */
+    // for(p = proc; p < &proc[NPROC]; p++) {
+    //   acquire(&p->lock);
+    //   if(p->state == RUNNABLE) {
+    //     // Switch to chosen process.  It is the process's job
+    //     // to release its lock and then reacquire it
+    //     // before jumping back to us.
+    //     p->state = RUNNING;
+    //     c->proc = p;
+    //     p->ticks_used++; // lab2: count ticks used by this process
+    //     swtch(&c->context, &p->context);
+
+    //     // Process is done running for now.
+    //     // It should have changed its p->state before coming back.
+    //     c->proc = 0;
+    //   }
+    //   release(&p->lock);
+    // }
+
+
+
+    /* ------------- lottery schedule ------------- */
+    // // count the total number of tickets
+    // int total = 0;
+    // for(p = proc; p < &proc[NPROC]; p++){
+    //   acquire(&p->lock);
+    //   if(p->state == RUNNABLE && p->tickets > 0){
+    //     total += p->tickets;
+    //   }
+    //   release(&p->lock);
+    // }
+    // if(total == 0){
+    //   // no runnable process, skip this round
+    //   continue;
+    // }
+
+    // // draw a winning ticket, ensuring it's between 1 and total
+    // int winning = (rand() % total) + 1;
+
+    // // select the winning process
+    // int acc = 0;
+
+    // for(p = proc; p < &proc[NPROC]; p++){
+    //   acquire(&p->lock);
+    //   if(p->state == RUNNABLE){
+    //     acc += p->tickets;
+    //     if(acc >= winning){
+    //       // found the winner, run it
+    //       p->state = RUNNING;
+    //       c->proc = p;
+    //       swtch(&c->context, &p->context);
+    //       c->proc = 0;
+    //       release(&p->lock);
+    //       break;   // schedule next process from the beginning
+    //     }
+    //   }
+    //   release(&p->lock);
+    // }
+
+    /* ------------- stride schedule ------------- */
+    struct proc *winner = 0;
+
+    for(p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
+        if(winner == 0 || p->pass < winner->pass){
+          if(winner != 0){
+            release(&winner->lock);
+          }
+          winner = p;
+        } else {
+          release(&p->lock);
+        }
+      } else {
+        release(&p->lock);
       }
-      release(&p->lock);
+    }
+
+    if(winner != 0){
+      // found the winner, run it
+      winner->state = RUNNING;
+      c->proc = winner;
+      winner->ticks_used++; // lab2: count ticks used by this process
+      swtch(&c->context, &winner->context);
+
+      // update the winner's pass value
+      winner->pass += winner->stride;
+
+      c->proc = 0;
+      release(&winner->lock);
     }
   }
 }
@@ -749,6 +843,7 @@ set_tickets(int n)
   acquire(&p->lock);
   p->tickets = (n < 1) ? 1 : 
                 (n > 10000) ? 10000 : n;
+  p->stride  = STRIDE_K / p->tickets;
   printf("[K_INFO] set tickets to %d for process %d(%s)\n",
          p->tickets, p->pid, p->name);  
   release(&p->lock);
