@@ -1,6 +1,7 @@
 #include "kernel/types.h"
 #include "kernel/stat.h"
 #include "user/user.h"
+#include "user/thread.h"
 
 void test_hello(int argc, char *argv[]) {
     int n = 0;
@@ -149,8 +150,40 @@ void test_clone_work() {
     }
 }
 
-int main(int argc, char *argv[])
+// int main(int argc, char *argv[])
+// {
+//     test_clone_work();
+//     exit(0);
+// }
+
+int counter = 0;
+struct lock_t lock;
+
+void *
+worker(void *arg)
 {
-    test_clone_work();
-    exit(0);
+  int n = *(int*)arg;
+  for (int i = 0; i < n; i++) {
+    lock_acquire(&lock);
+    counter++;
+    lock_release(&lock);
+  }
+  return 0;
+}
+
+int
+main(int argc, char *argv[])
+{
+  lock_init(&lock);
+
+  int n = 10000;
+  thread_create(worker, &n);
+  thread_create(worker, &n);
+
+  // 等两个“线程”（其实是两个 kernel-level 线程）结束
+  wait(0);
+  wait(0);
+
+  printf("counter = %d (expect %d)\n", counter, 2*n);
+  exit(0);
 }

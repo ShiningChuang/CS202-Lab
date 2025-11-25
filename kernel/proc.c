@@ -198,7 +198,7 @@ freeproc(struct proc *p)
     int shared = 0;
     struct proc *q;
 
-    // 看看还有没有别的 proc 在用同一张 pagetable
+    // lab3: if there is other proc sharing the pagetable, do not free it
     for(q = proc; q < &proc[NPROC]; q++){
       if(q != p &&
          q->state != UNUSED &&
@@ -209,7 +209,7 @@ freeproc(struct proc *p)
     }
 
     if(!shared){
-      // 没人用了，真正释放这张页表
+      // lab3: no other proc is using the pagetable, free it
       proc_freepagetable(p->pagetable, p->sz);
     }
 
@@ -1094,7 +1094,7 @@ clone(uint64 stack)
   // }
   
   //lab3
-  if(p->next_thread_id > 20)   // exceed max thread num
+  if(p->next_thread_id > 20)   // exceed max thread num; easier way
     return -1;
   int tid = p->next_thread_id++;
   np->thread_id = tid;
