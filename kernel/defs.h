@@ -113,6 +113,7 @@ int             get_syscall_num(); // syscall_num
 int             get_free_memory_pages_num(); // free_memory_pages_num
 int             sched_statistics(); // lab2: sched_statistics
 int             set_tickets(int n); // lab2: tickets
+int             clone(uint64 stack); // lab3: clone
 
 // swtch.S
 void            swtch(struct context*, struct context*);

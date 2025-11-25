@@ -146,6 +146,10 @@ found:
   // initialize syscall counter
   p->current_proc_syscall_num = 0;
 
+  // lab3
+  p->thread_id = 0; // normal process
+  p->next_thread_id = 1;
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -170,18 +174,51 @@ found:
   return p;
 }
 
+
 // free a proc structure and the data hanging from it,
 // including user pages.
 // p->lock must be held.
 static void
 freeproc(struct proc *p)
 {
-  if(p->trapframe)
+  if(p->trapframe) {
+    // lab3: for thread, unmapping the trapframe from user address space
+    if (p->pagetable && p->thread_id > 0) {
+      uvmunmap(p->pagetable, TRAPFRAME - PGSIZE * (uint64)p->thread_id, 1, 0);
+    }
     kfree((void*)p->trapframe);
-  p->trapframe = 0;
-  if(p->pagetable)
-    proc_freepagetable(p->pagetable, p->sz);
-  p->pagetable = 0;
+    p->trapframe = 0;
+  }
+  // lab3: only free the pagetable if it is main process
+  // if(p->pagetable && p->thread_id == 0) {
+  //   proc_freepagetable(p->pagetable, p->sz);
+  //   p->pagetable = 0;
+  // }
+  if (p->pagetable) {
+    int shared = 0;
+    struct proc *q;
+
+    // 看看还有没有别的 proc 在用同一张 pagetable
+    for(q = proc; q < &proc[NPROC]; q++){
+      if(q != p &&
+         q->state != UNUSED &&
+         q->pagetable == p->pagetable){
+        shared = 1;
+        break;
+      }
+    }
+
+    if(!shared){
+      // 没人用了，真正释放这张页表
+      proc_freepagetable(p->pagetable, p->sz);
+    }
+
+    p->pagetable = 0;
+  }
+  // lab3: reset thread id
+  p->thread_id = 0; 
+  p->next_thread_id = 0; 
+
   p->sz = 0;
   p->pid = 0;
   p->parent = 0;
@@ -931,4 +968,176 @@ set_tickets(int n)
          p->tickets, p->pid, p->name);  
   release(&p->lock);
   return 0;
+}
+
+// // lab3
+// #define MAX_THREAD_NUM 20
+// static int
+// allocate_thread_id(struct proc *parent)
+// {
+//   for (int id = 1; id < MAX_THREAD_NUM; id++) {
+//     int used = 0;
+//     for (struct proc *p = proc; p < &proc[NPROC]; p++) {
+//       acquire(&p->lock);
+//       // id is used when three conditions are all met
+//       if (p->state != UNUSED 
+//           && p->pagetable == parent->pagetable 
+//           && p->thread_id == id) {
+//         used = 1;
+//         break;
+//       }
+//       release(&p->lock);
+//     }
+//     if (!used) {
+//       printf("[K_INFO] allocate thread id %d for parent process %d(%s)\n",
+//              id, parent->pid, parent->name);
+//       return id;
+//     }
+//   }
+//   return -1; // no available thread id. Exceed MAX_THREAD_NUM.
+// }
+
+// lab3: Copied from allocproc(). No allocation of pagetable.
+static struct proc*
+allocproc_thread(struct proc *parent)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == UNUSED) {
+      goto found;
+    } else {
+      release(&p->lock);
+    }
+  }
+  return 0;
+
+found:
+  p->pid = allocpid();
+  p->state = USED;
+
+  // lab2
+  p->tickets    = 10000; // default maximum ticket
+  p->ticks_used = 0;
+  p->stride     = STRIDE_K / p->tickets;
+  p->pass       = 0;
+  // p->pass       = STRIDE_K / p->tickets; // set initial pass to stride
+
+  // lab3
+  p->thread_id = 0; // decided by clone()
+
+  // initialize syscall counter
+  p->current_proc_syscall_num = 0;
+
+  // Allocate a trapframe page.
+  if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+
+  // lab3: shared pagetable of parent process
+  p->pagetable = parent->pagetable;
+
+  // Set up new context to start executing at forkret,
+  // which returns to user space.
+  memset(&p->context, 0, sizeof(p->context));
+  p->context.ra = (uint64)forkret;
+  p->context.sp = p->kstack + PGSIZE;
+
+  return p;
+}
+
+// lab3
+// Copied from fork(), modified to implement clone()
+int
+clone(uint64 stack)
+{
+  int i, pid;
+  struct proc *np;
+  struct proc *p = myproc();
+
+  // // lab3: allocate thread id. Adjust to be done before allocproc_thread() to avoid lock issue.
+  // int tid = allocate_thread_id(p);
+  // if (tid == -1) {
+  //   return -1;
+  // }
+
+  // lab3: validate stack address
+  if (stack == 0) { // ignore "(stack % PGSIZE) != 0"
+    return -1; // invalid stack address
+  }
+
+  // Allocate process.
+  if((np = allocproc_thread(p)) == 0){
+    return -1;
+  }
+  // // Copy user memory from parent to child.
+  // if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
+  //   freeproc(np);
+  //   release(&np->lock);
+  //   return -1;
+  // }
+  np->sz = p->sz;
+  // lab2: child process inherit tickets, stride, pass from parent
+  np->tickets = p->tickets;
+  np->stride  = p->stride;
+  np->pass    = p->pass; 
+
+  // // lab3: allocate thread id
+  // int tid = allocate_thread_id(p);
+  // if (tid == -1) {
+  //   freeproc(np);
+  //   release(&np->lock);
+  //   return -1;
+  // }
+  
+  //lab3
+  if(p->next_thread_id > 20)   // exceed max thread num
+    return -1;
+  int tid = p->next_thread_id++;
+  np->thread_id = tid;
+  printf("[K_INFO::clone] np->thread_id=%d\n", np->thread_id);
+
+  // copy saved user registers.
+  *(np->trapframe) = *(p->trapframe);
+
+  // lab3: set up user stack for the thread
+  // lab3: set the stack pointer to the top of the provided stack
+  np->trapframe->sp = stack + PGSIZE; // stack grows downwards
+
+  // Cause fork to return 0 in the child.
+  np->trapframe->a0 = 0;
+
+  // lab3: mapping trapframe to the user address space of the thread
+  // lab3: TRAPFRAME -> TRAPFRAME - PGSIZE * thread_id
+  uint64 uva = TRAPFRAME - PGSIZE * (uint64) np->thread_id;
+  if(mappages(np->pagetable, uva, PGSIZE,
+              (uint64)(np->trapframe), PTE_R | PTE_W) < 0){
+    freeproc(np);
+    release(&np->lock);
+    return -1;
+  }
+
+  // increment reference counts on open file descriptors.
+  for(i = 0; i < NOFILE; i++)
+    if(p->ofile[i])
+      np->ofile[i] = filedup(p->ofile[i]);
+  np->cwd = idup(p->cwd);
+
+  safestrcpy(np->name, p->name, sizeof(p->name));
+
+  pid = np->pid;
+
+  release(&np->lock);
+
+  acquire(&wait_lock);
+  np->parent = p;
+  release(&wait_lock);
+
+  acquire(&np->lock);
+  np->state = RUNNABLE;
+  release(&np->lock);
+  return pid;
 }

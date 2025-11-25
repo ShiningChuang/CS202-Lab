@@ -52,12 +52,105 @@ void test_tickets(int n) {
     test_sched_statistics();
 }
 
+void test_clone() {
+    void *stack = malloc(4096);
+    int tid = clone(stack);
+    printf("Clone returned thread id: %d\n", tid);
+}
+
+void test_clone_basic() {
+    void *stack = malloc(4096);
+    int tid = clone(stack);
+
+    if (tid < 0) {
+        printf("clone failed!\n");
+        exit(1);
+    }
+
+    if (tid == 0) {
+        // child thread path
+        printf("[child] I am the child thread! tid=0\n");
+        exit(0);
+    } else {
+        // parent
+        printf("Clone returned thread id: %d\n", tid);
+        wait(0);
+        printf("Parent done, now exiting\n");
+        exit(0);
+    }
+}
+int recursion(int x) {
+    if (x == 0) return 0;
+    return 1 + recursion(x - 1);
+}
+
+void test_clone_stack() {
+    void *stack = malloc(4096);
+    int tid = clone(stack);
+
+    if (tid == 0) {
+        // child
+        int x = recursion(20);
+        printf("[child] recursion returned %d (stack OK)\n", x);
+        exit(0);
+    } else {
+        printf("[parent] tid = %d created\n", tid);
+        wait(0);
+    }
+}
+
+void test_clone_multiple() {
+    for (int i = 0; i < 3; i++) {
+        void *stack = malloc(4096);
+        int tid = clone(stack);
+
+        if (tid == 0) {
+            printf("[child] hello, I am thread\n");
+            exit(0);
+        }
+    }
+    for (int i = 0; i < 3; i++) wait(0);
+}
+
+void test_clone_wait() {
+    void *stack1 = malloc(4096);
+    void *stack2 = malloc(4096);
+
+    int tid1 = clone(stack1);
+    if (tid1 == 0) {
+        printf("[child1] exit\n");
+        exit(0);
+    }
+
+    int tid2 = clone(stack2);
+    if (tid2 == 0) {
+        printf("[child2] exit\n");
+        exit(0);
+    }
+
+    int pid;
+    while ((pid = wait(0)) > 0) {
+        printf("[parent] collected child pid %d\n", pid);
+    }
+}
+
+void test_clone_work() {
+    void *stack = malloc(4096);
+    int tid = clone(stack);
+
+    if (tid == 0) {
+        for (int i = 0; i < 5; i++) {
+            printf("[child] i=%d\n", i);
+        }
+        exit(0);
+    } else {
+        wait(0);
+        printf("[parent] done\n");
+    }
+}
+
 int main(int argc, char *argv[])
 {
-    // test_sysinfo(argc, argv);
-    // test_sysinfo_2();
-    test_tickets(9999);
-    test_tickets(0);
-    test_tickets(15000);
+    test_clone_work();
     exit(0);
 }

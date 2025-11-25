@@ -169,4 +169,14 @@ sys_sched_tickets(void) // tickets system call definition
   return set_tickets(n);
 }
 
+//lab3
+uint64
+sys_clone(void) // clone system call definition
+{
+  uint64 stack;
+  argaddr(0, &stack);
+  printf("[K_INFO::sys_clone] stack: %d \n", stack);
+  return clone(stack);
+}
+
 

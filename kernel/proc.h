@@ -112,4 +112,8 @@ struct proc {
   int ticks_used;              // number of ticks used
   uint64  stride;
   uint64  pass;
+
+  // lab3
+  uint64  thread_id;           // thread id
+  uint64  next_thread_id;      // next available thread id
 };

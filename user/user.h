@@ -26,6 +26,7 @@ int hello(int); // hello
 int sysinfo(int); // sysinfo
 int sched_statistics(void); // sched_statistics
 int sched_tickets(int); // tickets
+int clone(void *stack); // clone
 
 struct pinfo
 {
