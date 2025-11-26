@@ -175,7 +175,7 @@ sys_clone(void) // clone system call definition
 {
   uint64 stack;
   argaddr(0, &stack);
-  printf("[K_INFO::sys_clone] stack: %d \n", stack);
+  // printf("[K_INFO::sys_clone] stack: %d \n", stack);
   return clone(stack);
 }
 

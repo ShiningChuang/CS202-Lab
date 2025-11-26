@@ -1098,7 +1098,7 @@ clone(uint64 stack)
     return -1;
   int tid = p->next_thread_id++;
   np->thread_id = tid;
-  printf("[K_INFO::clone] np->thread_id=%d\n", np->thread_id);
+  // printf("[K_INFO::clone] np->thread_id=%d\n", np->thread_id);
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
